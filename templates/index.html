@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Detection Station{% endblock %}
+
+{% block content %}
+<div class="page-header compact-header">
+  <h1 class="page-title">WildGuard detection station</h1>
+  <p class="page-subtitle">Local image, video, and motion-aware camera monitoring for farm protection.</p>
+</div>
+
+<div class="action-grid">
+  <a href="{{ url_for('upload_page') }}" class="action-card">
+    <span class="action-card-label">Image upload</span>
+    <strong>Run detection</strong>
+    <small>Upload a field image and review bounding boxes and confidence values.</small>
+  </a>
+
+  <a href="{{ url_for('upload_page') }}" class="action-card">
+    <span class="action-card-label">Video upload</span>
+    <strong>Process clip</strong>
+    <small>Upload surveillance footage and inspect the annotated result video.</small>
+  </a>
+
+  <a href="{{ url_for('webcam_page') }}" class="action-card">
+    <span class="action-card-label">Live detection</span>
+    <strong>Passive monitor</strong>
+    <small>Background detection with alerts on motion and intrusion events.</small>
+  </a>
+</div>
+{% endblock %}

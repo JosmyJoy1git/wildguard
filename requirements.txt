@@ -1,0 +1,6 @@
+flask
+ultralytics
+opencv-python
+numpy
+scikit-learn
+werkzeug

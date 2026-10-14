@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Detection History — WildGuard Intrusion Protection{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h1 class="page-title">Intrusion Detection History</h1>
+      <p class="page-subtitle">Audit trail of all wild animal incidents identified entering farmland boundaries.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+      <form action="{{ url_for('seed_history_route') }}" method="POST">
+        <button type="submit" class="btn btn-secondary btn-sm" title="Populate sample detection history for demo">
+          Seed Demo Data
+        </button>
+      </form>
+      <form action="{{ url_for('clear_history_route') }}" method="POST" onsubmit="return confirm('Clear all history records?');">
+        <button type="submit" class="btn btn-danger btn-sm">
+          Clear History
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="glass-card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+  <form method="GET" action="{{ url_for('history_page') }}" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+      <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Filter Species:</span>
+      <a href="{{ url_for('history_page', animal='all', source=current_source) }}" class="btn btn-secondary btn-sm {% if current_animal == 'all' %}active{% endif %}">All Species</a>
+      <a href="{{ url_for('history_page', animal='elephant', source=current_source) }}" class="btn btn-secondary btn-sm {% if current_animal == 'elephant' %}active{% endif %}">Elephant</a>
+      <a href="{{ url_for('history_page', animal='tiger', source=current_source) }}" class="btn btn-secondary btn-sm {% if current_animal == 'tiger' %}active{% endif %}">Tiger</a>
+      <a href="{{ url_for('history_page', animal='monkey', source=current_source) }}" class="btn btn-secondary btn-sm {% if current_animal == 'monkey' %}active{% endif %}">Monkey</a>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <label for="source-select" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Source:</label>
+      <select id="source-select" name="source" onchange="this.form.submit()" style="background: rgba(11, 23, 15, 0.8); color: #fff; border: 1px solid var(--border-glass); padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem;">
+        <option value="all" {% if current_source == 'all' %}selected{% endif %}>All Sources</option>
+        <option value="image" {% if current_source == 'image' %}selected{% endif %}>Image Uploads</option>
+        <option value="video" {% if current_source == 'video' %}selected{% endif %}>Video Files</option>
+        <option value="webcam" {% if current_source == 'webcam' %}selected{% endif %}>Live Webcam</option>
+      </select>
+      <input type="hidden" name="animal" value="{{ current_animal }}">
+    </div>
+  </form>
+</div>
+
+<!-- History Table -->
+<div class="glass-card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h2 style="font-size: 1.15rem; font-weight: 700;">Logged Detections ({{ detections|length }} entries)</h2>
+    <span style="font-size: 0.8rem; color: var(--text-dim);">Sorted newest first</span>
+  </div>
+
+  {% if detections %}
+  <div class="table-container">
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th style="width: 50px;">ID</th>
+          <th style="width: 76px;">Snapshot</th>
+          <th>Target Animal</th>
+          <th>Confidence Score</th>
+          <th>Estimated Loss</th>
+          <th>Source Feed</th>
+          <th>Date &amp; Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in detections %}
+        <tr>
+          <td style="color: var(--text-dim); font-size: 0.8rem;">#{{ d.id }}</td>
+          <td>
+            {% if d.thumbnail_path %}
+            <a href="{{ d.thumbnail_path }}" target="_blank" title="View Full Image">
+              <img src="{{ d.thumbnail_path }}" class="table-thumb" alt="{{ d.animal }}">
+            </a>
+            {% else %}
+            <div class="table-thumb no-img">No Image</div>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge {{ d.animal.lower() }}">{{ d.animal }}</span>
+          </td>
+          <td>
+            <span class="badge-confidence">{{ '{:.1f}'.format(d.confidence * 100) }}%</span>
+          </td>
+          <td class="cell-damage">
+            ₹{{ '{:,.0f}'.format(d.est_damage) }}
+          </td>
+          <td>
+            <span class="source-tag">
+              {{ d.source }}
+            </span>
+          </td>
+          <td class="cell-time" style="white-space: nowrap;">
+            {{ d.date }} &bull; {{ d.time }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align: center; padding: 4rem 1rem; color: var(--text-muted);">
+    <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700; margin-bottom: 0.4rem;">No Records Match Filters</h3>
+    <p style="font-size: 0.88rem; margin-bottom: 1.5rem;">Try resetting your filters or seed sample history records for the demo.</p>
+    <div style="display: flex; justify-content: center; gap: 0.75rem;">
+      <a href="{{ url_for('history_page') }}" class="btn btn-secondary btn-sm">Reset Filters</a>
+      <form action="{{ url_for('seed_history_route') }}" method="POST">
+        <button type="submit" class="btn btn-primary btn-sm">Seed Demo History</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,230 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Upload and analyze{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Image and video detection</h1>
+  <p class="page-subtitle">Upload a field image or clip to run the local YOLOv8 model and review the annotated result.</p>
+</div>
+
+<div class="panel-tabs">
+  <button id="tab-btn-image" class="panel-tab active" type="button" onclick="switchTab('image')">Image</button>
+  <button id="tab-btn-video" class="panel-tab" type="button" onclick="switchTab('video')">Video</button>
+</div>
+
+<div id="section-image" class="panel-section">
+  <div class="panel-grid">
+    <div class="glass-card">
+      <form id="image-upload-form" enctype="multipart/form-data">
+        <div class="dropzone" id="image-dropzone" onclick="document.getElementById('image-file-input').click()">
+          <div class="dropzone-title">Select image</div>
+          <div class="dropzone-subtitle">JPG, JPEG, PNG</div>
+          <input type="file" id="image-file-input" name="image" accept="image/*" style="display: none;">
+        </div>
+        <div id="selected-image-name" class="selection-label" style="display: none;"></div>
+        <button type="submit" id="btn-submit-image" class="btn btn-primary full-width" disabled>Run detection</button>
+      </form>
+    </div>
+
+    <div class="glass-card result-panel">
+      <div class="result-header">
+        <h2>Detection result</h2>
+        <span id="image-status-badge" class="badge" style="display: none;"></span>
+      </div>
+
+      <div id="image-spinner" class="result-spinner" style="display: none;">
+        <div class="spinner-dot"></div>
+        <div>Running detection</div>
+      </div>
+
+      <div id="image-preview-container" class="result-box">
+        <div id="image-placeholder-text" class="empty-state">Annotated image will appear here.</div>
+        <img id="image-result-display" alt="Annotated result" style="display: none;">
+      </div>
+
+      <div id="image-detections-summary" class="summary-box" style="display: none;">
+        <h4>Detected animals</h4>
+        <div id="image-detections-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="section-video" class="panel-section" style="display: none;">
+  <div class="panel-grid">
+    <div class="glass-card">
+      <form id="video-upload-form" enctype="multipart/form-data">
+        <div class="dropzone" id="video-dropzone" onclick="document.getElementById('video-file-input').click()">
+          <div class="dropzone-title">Select video</div>
+          <div class="dropzone-subtitle">MP4, AVI, MOV</div>
+          <input type="file" id="video-file-input" name="video" accept="video/*" style="display: none;">
+        </div>
+        <div id="selected-video-name" class="selection-label" style="display: none;"></div>
+        <button type="submit" id="btn-submit-video" class="btn btn-primary full-width" disabled>Process video</button>
+      </form>
+    </div>
+
+    <div class="glass-card result-panel">
+      <div class="result-header">
+        <h2>Annotated output</h2>
+        <span id="video-status-badge" class="badge" style="display: none;"></span>
+      </div>
+
+      <div id="video-spinner" class="result-spinner" style="display: none;">
+        <div class="spinner-dot"></div>
+        <div>Processing frames</div>
+      </div>
+
+      <div id="video-player-container" class="result-box">
+        <div id="video-placeholder-text" class="empty-state">Processed video will appear here.</div>
+        <video id="video-result-player" controls playsinline style="display: none;"></video>
+      </div>
+
+      <div id="video-detections-summary" class="summary-box" style="display: none;">
+        <h4>Video summary</h4>
+        <div id="video-counts-pills" class="chip-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function switchTab(tab) {
+  const isImage = tab === "image";
+  document.getElementById("section-image").style.display = isImage ? "block" : "none";
+  document.getElementById("section-video").style.display = isImage ? "none" : "block";
+  document.getElementById("tab-btn-image").classList.toggle("active", isImage);
+  document.getElementById("tab-btn-video").classList.toggle("active", !isImage);
+}
+
+const imageInput = document.getElementById("image-file-input");
+const imageSubmitBtn = document.getElementById("btn-submit-image");
+const imageNameLabel = document.getElementById("selected-image-name");
+
+imageInput.addEventListener("change", () => {
+  if (imageInput.files.length > 0) {
+    imageNameLabel.textContent = "Selected: " + imageInput.files[0].name;
+    imageNameLabel.style.display = "block";
+    imageSubmitBtn.disabled = false;
+  }
+});
+
+document.getElementById("image-upload-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!imageInput.files.length) return;
+
+  const formData = new FormData();
+  formData.append("image", imageInput.files[0]);
+  await executeImageInference(formData);
+});
+
+async function executeImageInference(formData) {
+  const spinner = document.getElementById("image-spinner");
+  spinner.style.display = "block";
+  document.getElementById("image-placeholder-text").style.display = "none";
+  document.getElementById("image-result-display").style.display = "none";
+  document.getElementById("image-detections-summary").style.display = "none";
+  imageSubmitBtn.disabled = true;
+
+  try {
+    const res = await fetch("/api/detect_image", { method: "POST", body: formData });
+    const data = await res.json();
+    if (data.error) {
+      alert("Error: " + data.error);
+      return;
+    }
+    renderImageResults(data);
+  } catch (err) {
+    alert("Failed to process image: " + err);
+  } finally {
+    spinner.style.display = "none";
+    imageSubmitBtn.disabled = false;
+  }
+}
+
+function renderImageResults(data) {
+  const imgDisplay = document.getElementById("image-result-display");
+  const summaryBox = document.getElementById("image-detections-summary");
+  const listEl = document.getElementById("image-detections-list");
+  const badge = document.getElementById("image-status-badge");
+
+  imgDisplay.src = data.annotated_image;
+  imgDisplay.style.display = "block";
+  document.getElementById("image-placeholder-text").style.display = "none";
+
+  listEl.innerHTML = "";
+  if (data.detections && data.detections.length > 0) {
+    badge.textContent = data.detections.length + " animal(s)";
+    badge.className = "badge elephant";
+    badge.style.display = "inline-flex";
+
+    data.detections.forEach((d) => {
+      const item = document.createElement("div");
+      item.className = "detail-chip";
+      item.innerHTML = "<span class=\"badge " + d.animal.toLowerCase() + "\">" + d.animal + "</span><span>" + (d.confidence * 100).toFixed(1) + "%</span>";
+      listEl.appendChild(item);
+    });
+    summaryBox.style.display = "block";
+  } else {
+    badge.style.display = "none";
+    summaryBox.style.display = "none";
+  }
+}
+
+const videoInput = document.getElementById("video-file-input");
+const videoSubmitBtn = document.getElementById("btn-submit-video");
+const videoNameLabel = document.getElementById("selected-video-name");
+
+videoInput.addEventListener("change", () => {
+  if (videoInput.files.length > 0) {
+    videoNameLabel.textContent = "Selected: " + videoInput.files[0].name;
+    videoNameLabel.style.display = "block";
+    videoSubmitBtn.disabled = false;
+  }
+});
+
+document.getElementById("video-upload-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!videoInput.files.length) return;
+
+  const formData = new FormData();
+  formData.append("video", videoInput.files[0]);
+  const spinner = document.getElementById("video-spinner");
+  spinner.style.display = "block";
+  videoSubmitBtn.disabled = true;
+
+  try {
+    const res = await fetch("/api/detect_video", { method: "POST", body: formData });
+    const data = await res.json();
+    if (data.error) {
+      alert("Error: " + data.error);
+      return;
+    }
+    const player = document.getElementById("video-result-player");
+    const placeholder = document.getElementById("video-placeholder-text");
+    placeholder.style.display = "none";
+    player.src = data.output_video;
+    player.style.display = "block";
+    document.getElementById("video-status-badge").style.display = "inline-flex";
+    document.getElementById("video-status-badge").textContent = data.total_detections + " detections";
+    document.getElementById("video-detections-summary").style.display = "block";
+    const pills = document.getElementById("video-counts-pills");
+    pills.innerHTML = "";
+    Object.entries(data.counts || {}).forEach(([key, value]) => {
+      const chip = document.createElement("span");
+      chip.className = "detail-chip";
+      chip.textContent = key + ": " + value;
+      pills.appendChild(chip);
+    });
+  } catch (err) {
+    alert("Failed to process video: " + err);
+  } finally {
+    spinner.style.display = "none";
+    videoSubmitBtn.disabled = false;
+  }
+});
+</script>
+{% endblock %}

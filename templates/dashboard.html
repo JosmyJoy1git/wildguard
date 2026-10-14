@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard & Activity Analysis — WildGuard Protection{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Animal Intrusion Analytics &amp; Damage Dashboard</h1>
+  <p class="page-subtitle">Aggregated wildlife behavior patterns, hourly intrusion histograms, and crop loss forecasts.</p>
+</div>
+
+<!-- Key Telemetry Cards -->
+<div class="grid-4 farmer-stats-grid">
+  <div class="glass-card stat-card">
+    <div style="flex: 1;">
+      <div class="stat-title">Total Intrusions</div>
+      <div class="stat-value">{{ activity.total_detections }}</div>
+      <div class="stat-meta">Recorded intrusions</div>
+    </div>
+  </div>
+
+  <div class="glass-card stat-card">
+    <div style="flex: 1;">
+      <div class="stat-title">Most Active Animal</div>
+      <div class="stat-value">{{ activity.most_active_animal }}</div>
+      <div class="stat-meta">Primary agricultural threat</div>
+    </div>
+  </div>
+
+  <div class="glass-card stat-card">
+    <div style="flex: 1;">
+      <div class="stat-title">Peak Activity Window</div>
+      <div class="stat-value" style="font-size: 1.25rem;">{{ activity.most_active_hour_label }}</div>
+      <div class="stat-meta">High vigilance period</div>
+    </div>
+  </div>
+
+  <div class="glass-card stat-card">
+    <div style="flex: 1;">
+      <div class="stat-title">Farmland Threat Level</div>
+      <div class="stat-value">
+        <span class="badge {% if activity.risk_level == 'High' %}rose{% elif activity.risk_level == 'Medium' %}tiger{% else %}elephant{% endif %}" style="font-size: 0.95rem; padding: 0.3rem 0.8rem;">
+          {{ activity.risk_level }} Threat
+        </span>
+      </div>
+      <div class="stat-meta">Recent intrusion rate</div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart Section: Species Counts (Bar) & Trend Over Time (Line) -->
+<div class="grid-2" style="margin-bottom: 2rem;">
+  <!-- Chart 1: Detections by Animal Type -->
+  <div class="glass-card">
+    <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">Intrusions by Wild Animal Type</h3>
+    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1.25rem;">Breakdown of detected species across all cameras</p>
+    <div style="height: 280px; position: relative;">
+      <canvas id="animalBarChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 2: Detections Over Time (Daily Trend) -->
+  <div class="glass-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+      <h3 style="font-size: 1.1rem; font-weight: 700;">Intrusions Over Time</h3>
+      {% if not activity.has_sufficient_data %}
+      <span class="badge amber" style="font-size: 0.72rem;">Limited Data</span>
+      {% endif %}
+    </div>
+    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1.25rem;">Daily invasion count over the last 7 observed days</p>
+    <div style="height: 280px; position: relative;">
+      <canvas id="trendLineChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Animal Activity Analysis: Hourly Time-of-Day Distribution (Histogram) -->
+<div class="glass-card" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div>
+      <h3 style="font-size: 1.15rem; font-weight: 700;">Time-of-Day Intrusion Distribution</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        Frequency of incursions across the 24-hour cycle (00:00 to 23:00) to schedule perimeter watches.
+      </p>
+    </div>
+    <div style="font-size: 0.82rem; color: var(--accent-emerald); background: rgba(16, 185, 129, 0.1); padding: 0.3rem 0.75rem; border-radius: 9999px; border: 1px solid rgba(16, 185, 129, 0.25); font-weight: 600;">
+      Peak Incursion Hour: {{ activity.most_active_hour_label }}
+    </div>
+  </div>
+  <div style="height: 260px; position: relative;">
+    <canvas id="hourlyHistogramChart"></canvas>
+  </div>
+</div>
+
+<!-- CROP DAMAGE ESTIMATION ENGINE -->
+<div class="glass-card" style="margin-bottom: 2rem; border-left: 4px solid var(--accent-emerald);">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <h2 style="font-size: 1.3rem; font-weight: 700;">Crop Damage Estimation Engine</h2>
+        <span class="badge emerald">scikit-learn Linear Regression</span>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 780px;">
+        Evaluated on agricultural loss dataset (features: animal species, herd count, intrusion duration &rarr; loss in ₹) using an 80/20 train-test split (R² = 0.59, MAE = ₹2,004).
+      </p>
+    </div>
+    <div style="text-align: right; background: rgba(0,0,0,0.25); padding: 0.6rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass);">
+      <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Total Historical Damage</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #fca5a5;">₹{{ '{:,.0f}'.format(stats.total_damage_inr) }}</div>
+    </div>
+  </div>
+
+  <!-- Interactive Live Damage Calculator -->
+  <div style="background: rgba(11, 23, 15, 0.6); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-glass);">
+    <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 1rem;">
+      Interactive Crop Damage Simulator
+    </h3>
+    <div class="grid-3" style="align-items: end;">
+      <div>
+        <label for="sim-animal" style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 500;">Animal Species:</label>
+        <select id="sim-animal" onchange="calculateDamageEstimate()" style="width: 100%; background: #07120a; color: #fff; border: 1px solid var(--border-glass); padding: 0.55rem; border-radius: var(--radius-sm); font-size: 0.9rem;">
+          <option value="Elephant">Elephant (High Severity Trampling)</option>
+          <option value="Tiger">Tiger (Medium Boundary Threat)</option>
+          <option value="Monkey">Monkey (Moderate Troop Raiding)</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="sim-count" style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 500;">Animal Count: <strong id="sim-count-val" style="color: #fff;">1</strong></label>
+        <input type="range" id="sim-count" min="1" max="10" value="1" oninput="document.getElementById('sim-count-val').textContent = this.value; calculateDamageEstimate()" style="width: 100%;">
+      </div>
+
+      <div>
+        <label for="sim-duration" style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 500;">Intrusion Duration: <strong id="sim-duration-val" style="color: #fff;">20 mins</strong></label>
+        <input type="range" id="sim-duration" min="5" max="120" step="5" value="20" oninput="document.getElementById('sim-duration-val').textContent = this.value + ' mins'; calculateDamageEstimate()" style="width: 100%;">
+      </div>
+    </div>
+
+    <!-- Calculated Result Output -->
+    <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-glass); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+      <div style="font-size: 0.85rem; color: var(--text-muted);">
+        Predicted Loss: <span id="sim-formula-note" style="color: var(--text-dim); font-size: 0.8rem;">(Computed via scikit-learn LinearRegression model)</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 0.4rem;">
+        <span style="font-size: 1.1rem; color: var(--text-muted);">Estimated Loss:</span>
+        <span id="sim-result-amount" style="font-size: 1.6rem; font-weight: 800; color: #fca5a5;">₹9,350</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fallback / Seed Data Card if sparse history -->
+{% if not activity.has_sufficient_data %}
+<div class="glass-card" style="text-align: center; padding: 2rem 1.5rem; background: rgba(245, 158, 11, 0.05); border-color: rgba(245, 158, 11, 0.25);">
+  <h3 style="color: #fbbf24; font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem;">Insufficient Historical Records for Full Weekly Trends</h3>
+  <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 520px; margin: 0 auto 1rem;">
+    The system needs at least 3 historical intrusion records to compute deep temporal trends. Click below to load demo data or upload a video.
+  </p>
+  <form action="{{ url_for('seed_history_route') }}" method="POST">
+    <button type="submit" class="btn btn-secondary btn-sm" style="border-color: rgba(245, 158, 11, 0.4);">
+      Load 7-Day Demo Intrusion Dataset
+    </button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Chart.js Theme Defaults
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+
+// 1. Animal Counts Bar Chart
+const animalDistribution = {{ activity.animal_distribution|tojson }};
+const animalLabels = Object.keys(animalDistribution);
+const animalCounts = Object.values(animalDistribution);
+
+const barCtx = document.getElementById('animalBarChart').getContext('2d');
+new Chart(barCtx, {
+  type: 'bar',
+  data: {
+    labels: animalLabels.length ? animalLabels : ['Elephant', 'Tiger', 'Monkey'],
+    datasets: [{
+      label: 'Detections',
+      data: animalCounts.length ? animalCounts : [0, 0, 0],
+      backgroundColor: [
+        'rgba(16, 185, 129, 0.75)',
+        'rgba(245, 158, 11, 0.75)',
+        'rgba(139, 92, 246, 0.75)'
+      ],
+      borderColor: [
+        '#10b981',
+        '#f59e0b',
+        '#8b5cf6'
+      ],
+      borderWidth: 1.5,
+      borderRadius: 6
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1 },
+        grid: { color: 'rgba(255,255,255,0.05)' }
+      },
+      x: {
+        grid: { display: false }
+      }
+    }
+  }
+});
+
+// 2. Daily Trend Line Chart
+const dailyTrend = {{ activity.daily_trend|tojson }};
+const trendDates = dailyTrend.map(d => d.date);
+const trendCounts = dailyTrend.map(d => d.count);
+
+const lineCtx = document.getElementById('trendLineChart').getContext('2d');
+new Chart(lineCtx, {
+  type: 'line',
+  data: {
+    labels: trendDates.length ? trendDates : ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'],
+    datasets: [{
+      label: 'Intrusions',
+      data: trendCounts.length ? trendCounts : [0, 0, 0, 0, 0],
+      borderColor: '#10b981',
+      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+      borderWidth: 2.5,
+      fill: true,
+      tension: 0.35,
+      pointBackgroundColor: '#10b981',
+      pointRadius: 4
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1 },
+        grid: { color: 'rgba(255,255,255,0.05)' }
+      },
+      x: {
+        grid: { color: 'rgba(255,255,255,0.03)' }
+      }
+    }
+  }
+});
+
+// 3. Hourly Activity Histogram
+const hourlyData = {{ activity.hourly_distribution|tojson }};
+const hourLabels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+
+const histCtx = document.getElementById('hourlyHistogramChart').getContext('2d');
+new Chart(histCtx, {
+  type: 'bar',
+  data: {
+    labels: hourLabels,
+    datasets: [{
+      label: 'Intrusions by Hour',
+      data: hourlyData,
+      backgroundColor: 'rgba(6, 182, 212, 0.65)',
+      borderColor: '#06b6d4',
+      borderWidth: 1,
+      borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1 },
+        grid: { color: 'rgba(255,255,255,0.05)' }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { maxRotation: 45, minRotation: 0 }
+      }
+    }
+  }
+});
+
+// Live Interactive Damage Calculator
+async function calculateDamageEstimate() {
+  const animal = document.getElementById('sim-animal').value;
+  const count = document.getElementById('sim-count').value;
+  const duration = document.getElementById('sim-duration').value;
+
+  try {
+    const res = await fetch(`/api/estimate_damage?animal=${encodeURIComponent(animal)}&count=${count}&duration=${duration}`);
+    const data = await res.json();
+    document.getElementById('sim-result-amount').textContent = `₹${Number(data.estimated_damage_inr).toLocaleString()}`;
+  } catch (e) {
+    console.error('Simulation error:', e);
+  }
+}
+
+// Initial calculation on page load
+calculateDamageEstimate();
+</script>
+{% endblock %}

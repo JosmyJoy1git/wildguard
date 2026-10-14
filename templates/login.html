@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farmer login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="wildguard-theme login-page">
+  <div class="glass-card login-card">
+    <div class="login-header">
+      <div class="brand-badge-logo">WG</div>
+      <h1>WildGuard</h1>
+      <p>Farmer access</p>
+    </div>
+
+    {% if error %}
+    <div class="login-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('farmer_login') }}" class="login-form">
+      <label>
+        <span>Username</span>
+        <input type="text" name="username" value="farmer" required>
+      </label>
+
+      <label>
+        <span>Password</span>
+        <input type="password" name="password" value="farmer123" required>
+      </label>
+
+      <button type="submit" class="btn btn-primary full-width">Open dashboard</button>
+    </form>
+
+    <div class="login-meta">
+      <span>Demo access:</span>
+      <strong>farmer / farmer123</strong>
+      <a href="{{ url_for('index') }}">Back to detection</a>
+    </div>
+  </div>
+</body>
+</html>

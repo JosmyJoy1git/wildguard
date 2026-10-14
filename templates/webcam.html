@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Live monitoring{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Motion-aware camera monitoring</h1>
+  <p class="page-subtitle">The camera remains in passive monitoring mode by default and only alerts when the system detects movement or an animal event.</p>
+</div>
+
+<div class="webcam-layout">
+  <div class="glass-card webcam-panel">
+    <div class="stream-box" id="webcam-viewport">
+      <div class="stream-overlay-badge" id="stream-live-pill" style="display: none;">
+        <span class="pulse-dot"></span> Live view
+      </div>
+
+      <img id="webcam-stream-img" src="" alt="Live webcam feed" style="display: none;">
+
+      <div id="webcam-standby" class="standby-panel">
+        <h3>Passive monitoring</h3>
+        <p>Waiting for motion or animal detection events. The feed stays quiet until an event is triggered.</p>
+        <button class="btn btn-primary" type="button" onclick="startWebcam()">View live feed</button>
+      </div>
+
+      <div id="webcam-fallback" class="fallback-panel" style="display: none;">
+        <h3>No camera available</h3>
+        <p>The local camera is not available from this device. Use the image or video upload flow instead.</p>
+        <a href="{{ url_for('upload_page') }}" class="btn btn-secondary">Open upload flow</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-card status-panel">
+    <h3>Monitoring status</h3>
+    <div class="status-row">
+      <span>Camera mode</span>
+      <strong id="txt-stream-status">Passive</strong>
+    </div>
+    <div class="status-row">
+      <span>Inference</span>
+      <strong>YOLOv8 model</strong>
+    </div>
+    <div class="status-row">
+      <span>Alert tone</span>
+      <strong>Notification chime</strong>
+    </div>
+    <div class="status-row">
+      <span>Human filter</span>
+      <strong>Enabled</strong>
+    </div>
+
+    <button id="btn-start-webcam" class="btn btn-primary full-width" type="button" onclick="startWebcam()">Enable live view</button>
+    <button id="btn-stop-webcam" class="btn btn-secondary full-width" type="button" onclick="stopWebcam()" style="display: none;">Stop live view</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let isStreaming = false;
+let statusPollInterval = null;
+
+async function startWebcam() {
+  const streamImg = document.getElementById('webcam-stream-img');
+  const standby = document.getElementById('webcam-standby');
+  const fallback = document.getElementById('webcam-fallback');
+  const livePill = document.getElementById('stream-live-pill');
+  const statusTxt = document.getElementById('txt-stream-status');
+  const startBtn = document.getElementById('btn-start-webcam');
+  const stopBtn = document.getElementById('btn-stop-webcam');
+
+  statusTxt.textContent = 'Connecting';
+
+  try {
+    const res = await fetch('/api/webcam/start', { method: 'POST' });
+    const data = await res.json();
+
+    if (!data.available) {
+      standby.style.display = 'none';
+      streamImg.style.display = 'none';
+      fallback.style.display = 'block';
+      statusTxt.textContent = 'Unavailable';
+      return;
+    }
+
+    standby.style.display = 'none';
+    fallback.style.display = 'none';
+    streamImg.src = '/webcam_feed?t=' + new Date().getTime();
+    streamImg.style.display = 'block';
+    livePill.style.display = 'flex';
+
+    statusTxt.textContent = 'Live';
+    startBtn.style.display = 'none';
+    stopBtn.style.display = 'block';
+    isStreaming = true;
+    startWebcamAlarmPolling();
+  } catch (err) {
+    standby.style.display = 'none';
+    fallback.style.display = 'block';
+    statusTxt.textContent = 'Error';
+  }
+}
+
+async function stopWebcam() {
+  const streamImg = document.getElementById('webcam-stream-img');
+  const standby = document.getElementById('webcam-standby');
+  const livePill = document.getElementById('stream-live-pill');
+  const statusTxt = document.getElementById('txt-stream-status');
+  const startBtn = document.getElementById('btn-start-webcam');
+  const stopBtn = document.getElementById('btn-stop-webcam');
+
+  streamImg.src = '';
+  streamImg.style.display = 'none';
+  standby.style.display = 'block';
+  livePill.style.display = 'none';
+  statusTxt.textContent = 'Passive';
+  startBtn.style.display = 'block';
+  stopBtn.style.display = 'none';
+  isStreaming = false;
+
+  if (statusPollInterval) {
+    clearInterval(statusPollInterval);
+    statusPollInterval = null;
+  }
+
+  await fetch('/api/webcam/stop', { method: 'POST' });
+}
+
+let lastDetectionId = 0;
+function startWebcamAlarmPolling() {
+  if (statusPollInterval) clearInterval(statusPollInterval);
+  statusPollInterval = setInterval(async () => {
+    if (!isStreaming) return;
+    try {
+      const res = await fetch('/api/webcam_last_event');
+      const data = await res.json();
+      if (data && data.detection && data.detection.id > lastDetectionId) {
+        lastDetectionId = data.detection.id;
+        playIntrusionAlarm(data.detection.animal, data.detection.confidence);
+      }
+    } catch (e) {}
+  }, 2500);
+}
+
+window.addEventListener('beforeunload', () => {
+  if (isStreaming) {
+    navigator.sendBeacon('/api/webcam/stop');
+  }
+});
+</script>
+{% endblock %}

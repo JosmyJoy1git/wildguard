@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farmer dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="wildguard-theme farmer-page">
+  <nav class="topbar">
+    <a href="{{ url_for('farmer_dashboard') }}" class="brand-mark">
+      <span class="brand-mark-icon">WG</span>
+      <span>WildGuard</span>
+    </a>
+
+    <div class="topbar-links">
+      <a href="{{ url_for('history_page') }}" class="nav-link">History</a>
+      <a href="{{ url_for('dashboard_page') }}" class="nav-link">Analytics</a>
+      <a href="{{ url_for('metrics_page') }}" class="nav-link">Metrics</a>
+      <span class="sync-pill"><span class="pulse-dot"></span> Sync active</span>
+      <button id="toggle-audio-btn" type="button" class="btn btn-secondary btn-sm" onclick="toggleAudioMute()">Audio: On</button>
+      <a href="{{ url_for('farmer_logout') }}" class="btn btn-secondary btn-sm">Log out</a>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="glass-card banner-sync">
+      <div class="banner-content">
+        <div class="banner-title">Farmer monitoring dashboard</div>
+        <div class="banner-desc">Detection events from the field station are logged here and shown as fresh alerts with confidence and crop loss estimates.</div>
+      </div>
+      <div class="banner-url-box">
+        <span class="banner-url-label">Portal:</span>
+        <strong class="banner-url">http://{{ local_ip }}:{{ server_port }}/farmer</strong>
+      </div>
+    </div>
+
+    <div class="grid-4 farmer-stats-grid">
+      <div class="glass-card stat-card">
+        <div class="stat-title">Total intrusions</div>
+        <div class="stat-value" id="val-total-count">{{ stats.total_detections }}</div>
+        <div class="stat-meta">Shared database</div>
+      </div>
+
+      <div class="glass-card stat-card">
+        <div class="stat-title">Primary intruder</div>
+        <div class="stat-value" id="val-top-animal">{{ stats.top_animal }}</div>
+        <div class="stat-meta">Most frequent threat</div>
+      </div>
+
+      <div class="glass-card stat-card">
+        <div class="stat-title">Estimated damage</div>
+        <div class="stat-value val-loss" id="val-total-damage">₹{{ '{:,.0f}'.format(stats.total_damage_inr) }}</div>
+        <div class="stat-meta">Linear regression model</div>
+      </div>
+
+      <div class="glass-card stat-card">
+        <div class="stat-title">System status</div>
+        <div class="stat-value val-status" id="val-risk-level">Active</div>
+        <div class="stat-meta">Perimeter monitoring</div>
+      </div>
+    </div>
+
+    <div class="glass-card feed-card">
+      <div class="feed-header">
+        <div>
+          <h2 class="feed-title">Recent intrusion feed</h2>
+          <p class="feed-subtitle">Fresh records received from the field station</p>
+        </div>
+        <div class="feed-status"><span class="pulse-dot"></span> Live stream</div>
+      </div>
+
+      <div class="table-container">
+        <table class="modern-table">
+          <thead>
+            <tr>
+              <th style="width: 76px;">Image</th>
+              <th>Species</th>
+              <th>Confidence</th>
+              <th>Estimated loss</th>
+              <th>Source</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="farmer-history-body">
+            {% for d in detections %}
+            <tr id="row-det-{{ d.id }}">
+              <td>
+                {% if d.thumbnail_path %}
+                <img src="{{ d.thumbnail_path }}" class="table-thumb" alt="{{ d.animal }}">
+                {% else %}
+                <div class="table-thumb no-img">No image</div>
+                {% endif %}
+              </td>
+              <td><span class="badge {{ d.animal.lower() }}">{{ d.animal }}</span></td>
+              <td><span class="badge-confidence">{{ '{:.1f}'.format(d.confidence * 100) }}%</span></td>
+              <td class="cell-damage">₹{{ '{:,.0f}'.format(d.est_damage) }}</td>
+              <td><span class="source-tag">{{ d.source }}</span></td>
+              <td class="cell-time">{{ d.date }} {{ d.time }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div id="intrusion-alert-modal" class="alert-modal-backdrop" style="display: none;">
+    <div class="alert-modal-box">
+      <div class="alert-modal-header">
+        <div>
+          <div class="siren-badge-pulse">Intrusion alert</div>
+          <h2 class="alert-modal-title">Perimeter event</h2>
+        </div>
+      </div>
+
+      <div class="alert-modal-body">
+        <div class="alert-modal-grid">
+          <div class="modal-snapshot-wrap">
+            <img id="modal-img-snapshot" src="" class="modal-snapshot-img" alt="Intrusion snapshot">
+          </div>
+          <div class="modal-details-col">
+            <div class="modal-detail-item">
+              <span class="modal-label">Species</span>
+              <div class="modal-val"><span id="modal-badge-animal" class="badge elephant">Elephant</span></div>
+            </div>
+            <div class="modal-metrics-row">
+              <div class="modal-detail-item">
+                <span class="modal-label">Confidence</span>
+                <div id="modal-txt-conf" class="modal-val bold">95.0%</div>
+              </div>
+              <div class="modal-detail-item">
+                <span class="modal-label">Estimated loss</span>
+                <div id="modal-txt-damage" class="modal-val loss">₹4,000</div>
+              </div>
+            </div>
+            <div class="modal-detail-item">
+              <span class="modal-label">Timestamp</span>
+              <div id="modal-txt-time" class="modal-val dim">Just now</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="alert-modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="dismissAlertModal()">Dismiss</button>
+        <button type="button" class="btn btn-danger" onclick="dismissAlertModal()">Notify team</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <div id="farmer-meta" data-highest-id="{{ highest_id }}" style="display: none;"></div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/farmer.js') }}"></script>
+</body>
+</html>
