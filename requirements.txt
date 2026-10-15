@@ -4,3 +4,5 @@ opencv-python
 numpy
 scikit-learn
 werkzeug
+psycopg2-binary
+gunicorn
