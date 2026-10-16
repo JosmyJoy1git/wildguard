@@ -41,6 +41,7 @@ from db import (
     get_detections,
     get_stats,
     get_alerts_since,
+    delete_detection,
     clear_history,
     seed_demo_history,
 )
@@ -246,6 +247,16 @@ def clear_history_route():
     # This operation deletes all detection history.
     clear_history()
     return redirect(url_for("history_page"))
+
+
+@app.route("/history/<int:detection_id>/delete", methods=["POST"])
+def delete_detection_route(detection_id):
+    delete_detection(detection_id)
+    return redirect(url_for(
+        "history_page",
+        animal=request.args.get("animal", "all"),
+        source=request.args.get("source", "all"),
+    ))
 
 
 @app.route("/dashboard")

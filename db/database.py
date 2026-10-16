@@ -286,6 +286,26 @@ def clear_history():
         conn.close()
 
 
+def delete_detection(detection_id: int) -> bool:
+    """Delete one detection by ID and report whether a row was removed."""
+    conn = get_db()
+
+    try:
+        placeholder = "%s" if is_postgres() else "?"
+        with db_cursor(conn) as cur:
+            cur.execute(
+                "DELETE FROM detections WHERE id = " + placeholder,
+                (int(detection_id),),
+            )
+            deleted = cur.rowcount > 0
+
+        conn.commit()
+        return deleted
+
+    finally:
+        conn.close()
+
+
 def seed_demo_history():
     """
     Replace existing history with sample detections.

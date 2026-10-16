@@ -67,6 +67,7 @@
           <th>Estimated Loss</th>
           <th>Source Feed</th>
           <th>Date &amp; Time</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody>
@@ -98,6 +99,11 @@
           </td>
           <td class="cell-time" style="white-space: nowrap;">
             {{ d.date }} &bull; {{ d.time }}
+          </td>
+          <td>
+            <form action="{{ url_for('delete_detection_route', detection_id=d.id, animal=current_animal, source=current_source) }}" method="POST" onsubmit="return confirm('Delete detection #{{ d.id }}? This cannot be undone.');">
+              <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            </form>
           </td>
         </tr>
         {% endfor %}

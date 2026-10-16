@@ -22,7 +22,7 @@
       <a href="{{ url_for('dashboard_page') }}" class="nav-link">Analytics</a>
       <a href="{{ url_for('metrics_page') }}" class="nav-link">Metrics</a>
       <span class="sync-pill"><span class="pulse-dot"></span> Sync active</span>
-      <button id="toggle-audio-btn" type="button" class="btn btn-secondary btn-sm" onclick="toggleAudioMute()">Audio: On</button>
+      <button id="toggle-audio-btn" type="button" class="btn btn-secondary btn-sm" onclick="toggleAudioMute()" title="Enable alert sound and play a test chime">Sound: Off · tap to test</button>
       <a href="{{ url_for('farmer_logout') }}" class="btn btn-secondary btn-sm">Log out</a>
     </div>
   </nav>

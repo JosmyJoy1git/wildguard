@@ -2,7 +2,7 @@
  * Farmer portal realtime alert handling.
  */
 
-let isMuted = false;
+let isMuted = true;
 let highestSeenId = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -19,17 +19,30 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-function toggleAudioMute() {
-  isMuted = !isMuted;
+async function toggleAudioMute() {
   const btn = document.getElementById("toggle-audio-btn");
-  if (btn) {
-    if (isMuted) {
-      btn.textContent = "Audio: Off";
-      btn.className = "btn btn-danger";
-    } else {
-      btn.textContent = "Audio: On";
-      btn.className = "btn btn-secondary";
+  if (isMuted) {
+    const ctx = await resumeAudioContext();
+    if (!ctx) {
+      if (btn) btn.textContent = "Sound unavailable";
+      return;
     }
+
+    isMuted = false;
+    if (btn) {
+      btn.textContent = "Sound: On";
+      btn.className = "btn btn-primary btn-sm";
+      btn.title = "Mute alert sound";
+    }
+    synthesizeNotificationTone(ctx);
+    return;
+  }
+
+  isMuted = true;
+  if (btn) {
+    btn.textContent = "Sound: Off";
+    btn.className = "btn btn-secondary btn-sm";
+    btn.title = "Enable alert sound and play a test chime";
   }
 }
 
@@ -49,8 +62,8 @@ function triggerRealtimeFarmerAlert(alertData) {
 
   if ("Notification" in window && Notification.permission === "granted") {
     try {
-      new Notification("Alert: Wild " + alertData.animal + " Detected", {
-        body: "Confidence: " + (alertData.confidence * 100).toFixed(0) + "% | Estimated loss: ₹" + alertData.est_damage,
+      new Notification("Wildlife activity detected", {
+        body: alertData.animal + " detected nearby. Confidence: " + (alertData.confidence * 100).toFixed(0) + "%.",
         icon: alertData.thumbnail_path || "/static/assets/icon.png"
       });
     } catch (e) {
